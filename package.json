@@ -1,0 +1,29 @@
+{
+  "name": "career-map-question-pipeline",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "normalize": "node src/normalize.js",
+    "generate": "node src/generate.js",
+    "upload": "node src/upload.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CrackCode-dev/Career-map-question-pipeline.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/CrackCode-dev/Career-map-question-pipeline/issues"
+  },
+  "homepage": "https://github.com/CrackCode-dev/Career-map-question-pipeline#readme",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "csv-parse": "^6.1.0",
+    "dotenv": "^17.3.1",
+    "mongodb": "^7.1.0"
+  }
+}

@@ -89,6 +89,8 @@ async function processFile(file) {
   for (let i = 0; i < data.length; i++) {
     const q = data[i];
 
+    if (!q || !q.question) continue;
+
     console.log(`Generating ${i + 1}/${data.length}: ${q.question}`);
 
     let answer = q.answer?.trim();
@@ -107,6 +109,7 @@ async function processFile(file) {
     const options = shuffle([answer, ...wrongAnswers]);
 
     output.push({
+      type: "mcq",
       question: q.question,
       correctAnswer: answer,
       wrongAnswers: wrongAnswers,
@@ -130,7 +133,7 @@ async function main() {
   const files = fs.readdirSync(inputDir);
 
   for (const file of files) {
-    if (file.endsWith(".json")) {
+    if (file.startsWith("mcq_") && file.endsWith(".json")) {
       await processFile(file);
     }
   }

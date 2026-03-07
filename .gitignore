@@ -1,8 +1,15 @@
-# Dependencies
+# Node dependencies
 node_modules/
 
-# Environment variables
+# Environment variables (API keys, DB passwords)
 .env
+
+# Logs
+logs/
+*.log
+
+# Generated files
+output/
 
 # OS files
 .DS_Store

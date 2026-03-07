@@ -21,8 +21,10 @@
   },
   "homepage": "https://github.com/CrackCode-dev/Career-map-question-pipeline#readme",
   "dependencies": {
+    "@google/genai": "^1.44.0",
     "@google/generative-ai": "^0.24.1",
     "csv-parse": "^6.1.0",
+    "csv-parser": "^3.2.0",
     "dotenv": "^17.3.1",
     "mongodb": "^7.1.0"
   }

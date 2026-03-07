@@ -6,8 +6,10 @@
   "type": "module",
   "scripts": {
     "normalize": "node src/normalize.js",
-    "generate": "node src/generate.js",
-    "upload": "node src/upload.js"
+    "selectQuestions": "node src/selectQuestions.js",
+    "generateMCQ": "node src/generateMCQ.js",
+    "upload": "node src/upload.js",
+    "pipeline": "node src/normalize.js && node src/selectQuestions.js && node src/generateMCQ.js && node src/upload.js"
   },
   "repository": {
     "type": "git",

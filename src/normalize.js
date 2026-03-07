@@ -32,7 +32,7 @@ function processFile(file) {
       const difficulty = getValue(row, ["difficulty level", "Difficulty", "difficulty"]);
       const category = getValue(row, ["category of the Q", "Category", "category"]);
 
-      if (!question || !answer) return;
+      if (!question) return;
 
       results.push({
         question,

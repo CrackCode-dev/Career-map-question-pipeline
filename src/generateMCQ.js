@@ -3,6 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import Groq from "groq-sdk";
+import { generateMissingAnswerMCQ } from "./utils.js";
 
 dotenv.config();
 
@@ -53,9 +54,9 @@ Return JSON only, no markdown, no backticks:
 
       // Strip markdown code fences just in case
       const cleaned = raw
-                      .replace(/```json/g, "")
-                      .replace(/```/g, "")
-                      .trim();
+        .replace(/```json/g, "")
+        .replace(/```/g, "")
+        .trim();
 
       const parsed = JSON.parse(cleaned);
       return parsed.wrongAnswers;
@@ -90,13 +91,24 @@ async function processFile(file) {
 
     console.log(`Generating ${i + 1}/${data.length}: ${q.question}`);
 
-    const wrongAnswers = await generateWrongAnswers(q.question, q.answer);
+    let answer = q.answer?.trim();
 
-    const options = shuffle([q.answer, ...wrongAnswers]);
+    if (!answer) {
+      answer = await generateMissingAnswerMCQ(q.question);
+      await wait(1000);
+    }
+
+    if (!answer) {
+      continue;
+    }
+
+    const wrongAnswers = await generateWrongAnswers(q.question, answer);
+
+    const options = shuffle([answer, ...wrongAnswers]);
 
     output.push({
       question: q.question,
-      correctAnswer: q.answer,
+      correctAnswer: answer,
       wrongAnswers: wrongAnswers,
       options: options,
       difficulty: q.difficulty,

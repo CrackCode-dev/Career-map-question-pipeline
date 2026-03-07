@@ -7,7 +7,8 @@
   "scripts": {
     "normalize": "node src/normalize.js",
     "generate": "node src/generate.js",
-    "upload": "node src/upload.js"
+    "upload": "node src/upload.js",
+    "pipeline": "node src/normalize.js && node src/generate.js && node src/upload.js"
   },
   "repository": {
     "type": "git",

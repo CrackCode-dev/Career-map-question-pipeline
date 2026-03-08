@@ -3,7 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import { connectDB, disconnectDB } from "./db/connection.js";
-import { Question, MCQQuestion, FillQuestion } from "./db/models/Question.js";
+import { careermapMCQ, careermapFillQ } from "./db/models/Question.js";
 
 dotenv.config();
 
@@ -16,8 +16,8 @@ const generatedDir = path.join(__dirname, "../output/generated");
 function validateQuestion(q) {
   if (!q.question || q.question.trim() === "") return false;
   // Check for answer OR correctAnswer (MCQ uses correctAnswer)
-  const hasAnswer = (q.answer && q.answer.trim() !== "") || 
-                    (q.correctAnswer && q.correctAnswer.trim() !== "");
+  const hasAnswer = (q.answer && q.answer.trim() !== "") ||
+    (q.correctAnswer && q.correctAnswer.trim() !== "");
   return hasAnswer;
 }
 
@@ -48,13 +48,16 @@ async function uploadMCQ() {
 
     console.log(`   Valid questions: ${validQuestions.length}`);
 
-    if (validQuestions.length > 0) {
-      const result = await MCQQuestion.insertMany(validQuestions);
-      console.log(`   ✔ Uploaded ${result.length} MCQ questions`);
-      totalUploaded += result.length;
-    } else {
-      console.log(`   ⚠ No valid questions to upload`);
+    for (const q of validQuestions) {
+      await careermapMCQ.updateOne(
+        { question: q.question },
+        { $set: q },
+        { upsert: true }
+      );
     }
+    console.log(`   ✔ Upserted ${validQuestions.length} MCQ questions`);
+    totalUploaded += validQuestions.length;
+
   }
 
   return totalUploaded;
@@ -85,76 +88,40 @@ async function uploadFill() {
       category: q.category || "General",
     }));
 
-    if (validQuestions.length > 0) {
-      const result = await FillQuestion.insertMany(validQuestions);
-      console.log(`   ✔ Uploaded ${result.length} Fill questions`);
-      totalUploaded += result.length;
+    for (const q of validQuestions) {
+      await careermapFillQ.updateOne(
+        { question: q.question },
+        { $set: q },
+        { upsert: true }
+      );
     }
+    console.log(`   ✔ Upserted ${validQuestions.length} Fill questions`);
+    totalUploaded += validQuestions.length;
   }
 
   return totalUploaded;
 }
 
-// Upload all to combined collection
-async function uploadAll() {
-  const files = fs.readdirSync(generatedDir).filter((f) => f.endsWith(".json"));
-
-  const allQuestions = [];
-
-  for (const file of files) {
-    const filePath = path.join(generatedDir, file);
-    const data = JSON.parse(fs.readFileSync(filePath, "utf8"));
-
-    if (Array.isArray(data)) {
-      allQuestions.push(
-        ...data.filter(validateQuestion).map((q) => ({
-          type: q.type || "mcq",
-          question: q.question?.trim(),
-          answer: q.answer?.trim() || q.correctAnswer?.trim(),
-          correctAnswer: q.correctAnswer?.trim() || q.answer?.trim(),
-          wrongAnswers: q.wrongAnswers || [],
-          options: q.options || [],
-          difficulty: q.difficulty || "Easy",
-          category: q.category || "General",
-        }))
-      );
-    }
-  }
-
-  if (allQuestions.length > 0) {
-    console.log(`\n📄 Uploading ${allQuestions.length} questions to combined collection`);
-    const result = await Question.insertMany(allQuestions);
-    console.log(`   ✔ Uploaded ${result.length} questions`);
-    return result.length;
-  }
-
-  return 0;
-}
-
 // Clear collections
 async function clearCollections() {
-  const mcqDeleted = await MCQQuestion.deleteMany({});
+  const mcqDeleted = await careermapMCQ.deleteMany({});
   console.log(`🗑 Cleared ${mcqDeleted.deletedCount} MCQ questions`);
 
-  const fillDeleted = await FillQuestion.deleteMany({});
+  const fillDeleted = await careermapFillQ.deleteMany({});
   console.log(`🗑 Cleared ${fillDeleted.deletedCount} Fill questions`);
 
-  const allDeleted = await Question.deleteMany({});
-  console.log(`🗑 Cleared ${allDeleted.deletedCount} from combined collection`);
 }
 
 // Show statistics
 async function showStats() {
   console.log("\n📊 Database Statistics:\n");
 
-  const mcqStats = await MCQQuestion.getStats();
+  const mcqStats = await careermapMCQ.getStats();
   console.log("MCQ Questions:", JSON.stringify(mcqStats, null, 2));
 
-  const fillStats = await FillQuestion.getStats();
+  const fillStats = await careermapFillQ.getStats();
   console.log("\nFill Questions:", JSON.stringify(fillStats, null, 2));
 
-  const allStats = await Question.getStats();
-  console.log("\nAll Questions:", JSON.stringify(allStats, null, 2));
 }
 
 // Main function
@@ -182,8 +149,7 @@ async function main() {
         console.log("\n📤 Uploading all questions...");
         const mcq = await uploadMCQ();
         const fill = await uploadFill();
-        const all = await uploadAll();
-        console.log(`\n✔ Summary: MCQ=${mcq}, Fill=${fill}, Combined=${all}`);
+        console.log(`\n✔ Summary: MCQ=${mcq}, Fill=${fill}`);
         break;
 
       case "clear":

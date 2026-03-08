@@ -18,6 +18,20 @@ const wait = (ms) => new Promise((res) => setTimeout(res, ms));
 
 // Asks Groq to classify each question as MCQ or Fill-in-the-blank
 async function splitQuestions(data, retries = 3) {
+
+    const CHUNK_SIZE = 50;
+    if (data.length > CHUNK_SIZE) {
+        let allMcq = [], allFill = [];
+        for (let i = 0; i < data.length; i += CHUNK_SIZE) {
+            const chunk = data.slice(i, i + CHUNK_SIZE);
+            const result = await splitQuestions(chunk, retries);
+            if (!result) return null;
+            allMcq.push(...result.mcqQuestions);
+            allFill.push(...result.fillQuestions);
+            await wait(1000);
+        }
+        return { mcqQuestions: allMcq, fillQuestions: allFill };
+    }
     const prompt = `
 You are given a list of quiz questions. Split them into two groups.
 
@@ -27,12 +41,15 @@ Group 1 - MCQ: best answered by choosing from options.
 - Concept comparison questions
 
 Group 2 - Fill: best as fill-in-the-blank.
-- Definition questions with a single key term as the answer
-- "What is called", "refers to" type questions
-- Questions where the answer is 1 to 3 words
+- Definition questions ("What is X called", "refers to", "is defined as")
+- Questions where the answer is a single concept, term, or short phrase
+- Questions with a clear one-word or short answer
+- "What is the term for", "What do you call" type questions
+- Aim to assign AT LEAST 40% of questions to this group
 
 Every question index must appear in exactly one group.
-Assign approximately 60% to MCQ and 40% to Fill.
+You MUST assign at least 40% to Fill. For a 50-question chunk that means at least 20 Fill.
+When in doubt, prefer Fill over MCQ
 
 Questions:
 ${data.map((q, i) => `${i}: ${q.question}`).join("\n")}
@@ -56,10 +73,18 @@ Return JSON only, no markdown, no backticks:
             const cleaned = raw.replace(/```json/g, "").replace(/```/g, "").trim();
             const parsed = JSON.parse(cleaned);
 
+            const mcqSet = new Set(parsed.mcq);
+            const fillSet = new Set(parsed.fill.filter(i => !mcqSet.has(i)));
+
+            const allAssigned = new Set([...mcqSet, ...fillSet]);
+            data.forEach((_, i) => {
+                if (!allAssigned.has(i)) mcqSet.add(i);
+            });
+
             // Map indices back to the original question objects
             return {
-                mcqQuestions: parsed.mcq.map(i => data[i]).filter(Boolean),
-                fillQuestions: parsed.fill.map(i => data[i]).filter(Boolean)
+                mcqQuestions: [...mcqSet].map(i => data[i]).filter(Boolean),
+                fillQuestions: [...fillSet].map(i => data[i]).filter(Boolean)
             };
 
         } catch (err) {

@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/quizdb";
+const MONGODB_URI = process.env.MONGO_URI ;
 
 let isConnected = false;
 
@@ -15,13 +15,12 @@ export async function connectDB() {
   }
 
   try {
-    const db = await mongoose.connect(MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+
+    const db = await mongoose.connect(MONGODB_URI);
+    
 
     isConnected = db.connections[0].readyState === 1;
-    console.log("✔ Connected to MongoDB:", MONGODB_URI);
+    console.log("✔ Connected to MongoDB");
     
     return db;
   } catch (err) {

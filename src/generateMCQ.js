@@ -25,7 +25,7 @@ if (!fs.existsSync(outputDir)) {
 const wait = (ms) => new Promise((res) => setTimeout(res, ms));
 
 function shuffle(arr) {
-  return arr.sort(() => Math.random() - 0.5);
+  return [...arr].sort(() => Math.random() - 0.5);
 }
 
 async function generateWrongAnswers(question, answer, retries = 3) {

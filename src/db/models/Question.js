@@ -13,6 +13,7 @@ const QuestionSchema = new mongoose.Schema({
     type: String,
     required: true,
     trim: true,
+    unique: true, // Ensure no duplicate questions
   },
 
   // For Fill: the answer to fill in the blank
@@ -122,8 +123,5 @@ QuestionSchema.statics.getStats = async function () {
 };
 
 // Create models for different collections
-export const Question = mongoose.model("Question", QuestionSchema);
-export const MCQQuestion = mongoose.model("MCQQuestion", QuestionSchema, "mcq_questions");
-export const FillQuestion = mongoose.model("FillQuestion", QuestionSchema, "fill_questions");
-
-export default Question;
+export const careermapMCQ = mongoose.model("careermapMCQ", QuestionSchema,"careermapMCQ");
+export const careermapFillQ = mongoose.model("careermapFillQ", QuestionSchema,"careermapFillQ");

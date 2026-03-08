@@ -62,9 +62,15 @@ Return JSON only, no markdown, no backticks:
         temperature: 0.5,
       });
 
-      const raw     = res.choices[0].message.content.trim();
+      const raw = res.choices[0].message.content.trim();
       const cleaned = raw.replace(/```json/g, "").replace(/```/g, "").trim();
-      const parsed  = JSON.parse(cleaned);
+      let parsed;
+
+      try {
+        parsed = JSON.parse(cleaned);
+      } catch {
+        throw new Error("Invalid JSON returned from AI");
+      }
 
       const blankCount = (parsed.fillQuestion.match(/___/g) || []).length;
       if (blankCount !== 1) {
@@ -100,6 +106,8 @@ async function processFile(file) {
   for (let i = 0; i < data.length; i++) {
     const q = data[i];
 
+    if (!q || !q.question) continue;
+
     console.log(`Generating ${i + 1}/${data.length}: ${q.question}`);
 
     let answer = q.answer?.trim();
@@ -116,11 +124,11 @@ async function processFile(file) {
     const fillQuestion = await generateFillQuestion(q.question, answer);
 
     output.push({
-      type:       "fill",
-      question:   fillQuestion,
-      answer:     answer,
+      type: "fill",
+      question: fillQuestion,
+      answer: answer,
       difficulty: q.difficulty,
-      category:   q.category,
+      category: q.category,
     });
 
     await wait(1000);
@@ -129,13 +137,8 @@ async function processFile(file) {
   // Output filename - replace fill_ prefix if it exists, or add it
   const outputFileName = file.startsWith("fill_") ? file : `fill_${file}`;
 
-  fs.writeFileSync(
-    path.join(outputDir, outputFileName),
-    JSON.stringify(output, null, 2)
-  );
-
   console.log(`✔ Generated ${outputFileName} with ${output.length} questions`);
-  
+
   return output;
 }
 

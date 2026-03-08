@@ -12,17 +12,19 @@ const __dirname = path.dirname(__filename);
 
 const generatedDir = path.join(__dirname, "../output/generated");
 
-// Validate question before saving
+// Validate question before saving - FIXED for MCQ
 function validateQuestion(q) {
   if (!q.question || q.question.trim() === "") return false;
-  if (!q.answer || q.answer.trim() === "") return false;
-  return true;
+  // Check for answer OR correctAnswer (MCQ uses correctAnswer)
+  const hasAnswer = (q.answer && q.answer.trim() !== "") || 
+                    (q.correctAnswer && q.correctAnswer.trim() !== "");
+  return hasAnswer;
 }
 
 // Upload MCQ questions
 async function uploadMCQ() {
   const files = fs.readdirSync(generatedDir).filter((f) =>
-    f.endsWith(".json") && (f.startsWith("mcq_") || f === "mcq_dataset.json")
+    f.endsWith(".json") && f.startsWith("mcq_")
   );
 
   let totalUploaded = 0;
@@ -36,7 +38,7 @@ async function uploadMCQ() {
     const validQuestions = data.filter(validateQuestion).map((q) => ({
       type: "mcq",
       question: q.question?.trim(),
-      answer: q.answer?.trim() || q.correctAnswer?.trim(),
+      answer: q.correctAnswer?.trim() || q.answer?.trim(),
       correctAnswer: q.correctAnswer?.trim() || q.answer?.trim(),
       wrongAnswers: q.wrongAnswers || [],
       options: q.options || [],
@@ -44,10 +46,14 @@ async function uploadMCQ() {
       category: q.category || "General",
     }));
 
+    console.log(`   Valid questions: ${validQuestions.length}`);
+
     if (validQuestions.length > 0) {
       const result = await MCQQuestion.insertMany(validQuestions);
       console.log(`   ✔ Uploaded ${result.length} MCQ questions`);
       totalUploaded += result.length;
+    } else {
+      console.log(`   ⚠ No valid questions to upload`);
     }
   }
 
@@ -57,7 +63,7 @@ async function uploadMCQ() {
 // Upload Fill questions
 async function uploadFill() {
   const files = fs.readdirSync(generatedDir).filter((f) =>
-    f.endsWith(".json") && (f.startsWith("fill_") || f === "fill_dataset.json")
+    f.endsWith(".json") && f.startsWith("fill_")
   );
 
   let totalUploaded = 0;

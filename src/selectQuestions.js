@@ -6,15 +6,17 @@ import Groq from "groq-sdk";
 
 dotenv.config();
 
+// __dirname fix for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY, });
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 const normalizedDir = path.join(__dirname, "../output/normalized");
 
 const wait = (ms) => new Promise((res) => setTimeout(res, ms));
 
+// Asks Groq to classify each question as MCQ or Fill-in-the-blank
 async function splitQuestions(data, retries = 3) {
     const prompt = `
 You are given a list of quiz questions. Split them into two groups.
@@ -49,11 +51,13 @@ Return JSON only, no markdown, no backticks:
                 messages: [{ role: "user", content: prompt }],
                 temperature: 0.2,
             });
+
             const raw = res.choices[0].message.content.trim();
             const cleaned = raw.replace(/```json/g, "").replace(/```/g, "").trim();
             const parsed = JSON.parse(cleaned);
 
-            return{
+            // Map indices back to the original question objects
+            return {
                 mcqQuestions: parsed.mcq.map(i => data[i]).filter(Boolean),
                 fillQuestions: parsed.fill.map(i => data[i]).filter(Boolean)
             };
@@ -62,49 +66,50 @@ Return JSON only, no markdown, no backticks:
             const is429 =
                 err.message?.includes("429") ||
                 err.message?.includes("rate_limit") ||
-                err.status === 429; 
+                err.status === 429;
 
             if (is429 && attempt < retries) {
                 const delay = 30000 * attempt;
                 await wait(delay);
             } else {
-                return null;
+                return null; // Give up after all retries
             }
         }
     }
 }
 
+// Reads a normalized JSON file, splits it, and saves mcq_ and fill_ versions
 async function processFile(file) {
-    const data = JSON.parse(    fs.readFileSync(path.join(normalizedDir, file), "utf8") );
+    const data = JSON.parse(fs.readFileSync(path.join(normalizedDir, file), "utf8"));
 
     const result = await splitQuestions(data);
-
-    if (!result) return ;
+    if (!result) return;
 
     const { mcqQuestions, fillQuestions } = result;
 
     fs.writeFileSync(
         path.join(normalizedDir, `mcq_${file}`),
-    JSON.stringify(mcqQuestions, null, 2)
-  );
+        JSON.stringify(mcqQuestions, null, 2)
+    );
 
-  fs.writeFileSync(
-    path.join(normalizedDir, `fill_${file}`),
-    JSON.stringify(fillQuestions, null, 2)
-  );
+    fs.writeFileSync(
+        path.join(normalizedDir, `fill_${file}`),
+        JSON.stringify(fillQuestions, null, 2)
+    );
 
-  console.log(`✔ ${file} → mcq_${file} (${mcqQuestions.length}) + fill_${file} (${fillQuestions.length})`);
+    console.log(`✔ ${file} → mcq_${file} (${mcqQuestions.length}) + fill_${file} (${fillQuestions.length})`);
 }
 
 async function main() {
-  const files = fs.readdirSync(normalizedDir);
+    const files = fs.readdirSync(normalizedDir);
 
-  for (const file of files) {
-    if (file.endsWith(".json") && !file.startsWith("mcq_") && !file.startsWith("fill_")) {
-      await processFile(file);
-      await wait(1000);
+    for (const file of files) {
+        // Skip already-split files to avoid reprocessing
+        if (file.endsWith(".json") && !file.startsWith("mcq_") && !file.startsWith("fill_")) {
+            await processFile(file);
+            await wait(1000);
+        }
     }
-  }
 }
 
 main();

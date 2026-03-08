@@ -1,0 +1,56 @@
+import mongoose from "mongoose";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/quizdb";
+
+let isConnected = false;
+
+// Connect to MongoDB
+export async function connectDB() {
+  if (isConnected) {
+    console.log("📦 Using existing MongoDB connection");
+    return;
+  }
+
+  try {
+    const db = await mongoose.connect(MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+
+    isConnected = db.connections[0].readyState === 1;
+    console.log("✔ Connected to MongoDB:", MONGODB_URI);
+    
+    return db;
+  } catch (err) {
+    console.error("❌ MongoDB connection error:", err.message);
+    throw err;
+  }
+}
+
+// Disconnect from MongoDB
+export async function disconnectDB() {
+  if (!isConnected) return;
+
+  try {
+    await mongoose.disconnect();
+    isConnected = false;
+    console.log("✔ Disconnected from MongoDB");
+  } catch (err) {
+    console.error("❌ Error disconnecting:", err.message);
+  }
+}
+
+// Get connection status
+export function getConnectionStatus() {
+  return {
+    isConnected,
+    readyState: mongoose.connection.readyState,
+    host: mongoose.connection.host,
+    name: mongoose.connection.name,
+  };
+}
+
+export default { connectDB, disconnectDB, getConnectionStatus };

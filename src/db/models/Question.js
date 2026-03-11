@@ -17,14 +17,12 @@ const QuestionSchema = new mongoose.Schema({
   },
 
   // For Fill: the answer to fill in the blank
-  // For MCQ: the correct answer
-  answer: {
+  answer:{
     type: String,
-    required: true,
     trim: true,
   },
 
-  // For MCQ: same as answer (for consistency)
+  // For MCQ: the correct answer
   correctAnswer: {
     type: String,
     trim: true,
@@ -123,5 +121,6 @@ QuestionSchema.statics.getStats = async function () {
 };
 
 // Create models for different collections
-export const careermapMCQ = mongoose.model("careermapMCQ", QuestionSchema,"careermapMCQ");
-export const careermapFillQ = mongoose.model("careermapFillQ", QuestionSchema,"careermapFillQ");
+export const SoftwareEngineerQ = mongoose.model("SoftwareEngineerQ", QuestionSchema,"SoftwareEngineerQ");
+export const MLEngineerQ = mongoose.model("MLEngineerQ", QuestionSchema,"MLEngineerQ");
+export const DataScientistQ = mongoose.model("DataScientistQ", QuestionSchema,"DataScientistQ");

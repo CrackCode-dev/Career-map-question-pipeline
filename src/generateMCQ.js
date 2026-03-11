@@ -25,18 +25,39 @@ if (!fs.existsSync(outputDir)) {
 const wait = (ms) => new Promise((res) => setTimeout(res, ms));
 
 function shuffle(arr) {
-  return arr.sort(() => Math.random() - 0.5);
+  return [...arr].sort(() => Math.random() - 0.5);
 }
 
 async function generateWrongAnswers(question, answer, retries = 3) {
   const prompt = `
-Generate 3 wrong answers for this quiz question.
+You are a quiz question designer. Generate 3 wrong answers for this multiple choice question.
 
 Question: ${question}
 Correct Answer: ${answer}
 
-Return JSON only, no markdown, no backticks:
+Rules:
+- Wrong answers MUST be about the SAME topic and concept as the question
+- Wrong answers MUST be the same type as the correct answer (if answer is a term, wrong answers are terms; if answer is a sentence, wrong answers are sentences)
+- Wrong answers MUST be similar in length to the correct answer (within 3-5 words difference)
+- Wrong answers must be plausible — something a student who hasn't studied might choose
+- Wrong answers must be clearly wrong to someone who knows the topic
+- NEVER use "None of the above", "All of the above", "Not applicable"
+- NEVER use answers from unrelated topics
+- NEVER make one answer obviously longer or shorter than the others
 
+Example 1:
+Question: "What data structure follows LIFO order?"
+Correct: "Stack"
+Wrong: ["Queue", "Heap", "Linked List"]
+
+Example 2:
+Question: "What is overfitting in machine learning?"
+Correct: "When a model learns training data too well and performs poorly on new data"
+Wrong: ["When a model fails to learn patterns from the training data",
+        "When a model performs equally well on training and test data",
+        "When a model is trained on insufficient data samples"]
+
+Return JSON only, no markdown, no backticks:
 {
   "wrongAnswers": ["a", "b", "c"]
 }
@@ -121,20 +142,25 @@ async function processFile(file) {
     await wait(1000); // 1s delay — Groq is much faster and more generous than Gemini free tier
   }
 
-  fs.writeFileSync(
-    path.join(outputDir, file),
-    JSON.stringify(output, null, 2)
-  );
-
-  console.log(`✔ Generated ${file}`);
+  console.log(`✔ Processed ${file}(${output.length} questions)`);
+  return output;
 }
 
 async function main() {
+
   const files = fs.readdirSync(inputDir);
 
   for (const file of files) {
     if (file.startsWith("mcq_") && file.endsWith(".json")) {
-      await processFile(file);
+      const questions = await processFile(file);
+
+      if (questions.length > 0) {
+        // "mcq_DataScientist.json" → "DataScientist"
+        const career = file.replace("mcq_", "").replace(".json", "");
+        const outputPath = path.join(outputDir, `mcq_${career}.json`);
+        fs.writeFileSync(outputPath, JSON.stringify(questions, null, 2));
+        console.log(`✔ Saved mcq_${career}.json (${questions.length} questions)`);
+      }
     }
   }
 }

@@ -3,7 +3,13 @@ import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import { connectDB, disconnectDB } from "./db/connection.js";
-import { Question, MCQQuestion, FillQuestion } from "./db/models/Question.js";
+import { SoftwareEngineerQ, MLEngineerQ, DataScientistQ } from "./db/models/Question.js";
+
+const MODEL_MAP = {
+  SoftwareEngineer: SoftwareEngineerQ,
+  MLEngineer: MLEngineerQ,
+  DataScientist: DataScientistQ,
+};
 
 dotenv.config();
 
@@ -15,10 +21,9 @@ const generatedDir = path.join(__dirname, "../output/generated");
 // Validate question before saving - FIXED for MCQ
 function validateQuestion(q) {
   if (!q.question || q.question.trim() === "") return false;
-  // Check for answer OR correctAnswer (MCQ uses correctAnswer)
-  const hasAnswer = (q.answer && q.answer.trim() !== "") || 
-                    (q.correctAnswer && q.correctAnswer.trim() !== "");
-  return hasAnswer;
+  if (q.type === "mcq") return !!(q.correctAnswer && q.correctAnswer.trim() !== "");
+  if (q.type === "fill") return !!(q.answer && q.answer.trim() !== "");
+  return false;
 }
 
 // Upload MCQ questions
@@ -30,6 +35,13 @@ async function uploadMCQ() {
   let totalUploaded = 0;
 
   for (const file of files) {
+    const career = file.replace("mcq_", "").replace(".json", "");
+    const Model = MODEL_MAP[career];
+    if (!Model) {
+      console.error(` No model found for career: ${career}`);
+      continue;
+    }
+
     const filePath = path.join(generatedDir, file);
     const data = JSON.parse(fs.readFileSync(filePath, "utf8"));
 
@@ -38,7 +50,6 @@ async function uploadMCQ() {
     const validQuestions = data.filter(validateQuestion).map((q) => ({
       type: "mcq",
       question: q.question?.trim(),
-      answer: q.correctAnswer?.trim() || q.answer?.trim(),
       correctAnswer: q.correctAnswer?.trim() || q.answer?.trim(),
       wrongAnswers: q.wrongAnswers || [],
       options: q.options || [],
@@ -48,13 +59,16 @@ async function uploadMCQ() {
 
     console.log(`   Valid questions: ${validQuestions.length}`);
 
-    if (validQuestions.length > 0) {
-      const result = await MCQQuestion.insertMany(validQuestions);
-      console.log(`   ✔ Uploaded ${result.length} MCQ questions`);
-      totalUploaded += result.length;
-    } else {
-      console.log(`   ⚠ No valid questions to upload`);
+    for (const q of validQuestions) {
+      await Model.updateOne(
+        { question: q.question },
+        { $set: q },
+        { upsert: true }
+      );
     }
+    console.log(`   ✔ Upserted ${validQuestions.length} MCQ questions`);
+    totalUploaded += validQuestions.length;
+
   }
 
   return totalUploaded;
@@ -69,8 +83,13 @@ async function uploadFill() {
   let totalUploaded = 0;
 
   for (const file of files) {
+    const career = file.replace("fill_", "").replace(".json", "");
+    const Model = MODEL_MAP[career];
+    if (!Model) { console.warn(`⚠️ No model found for ${career}`); continue; }
+
     const filePath = path.join(generatedDir, file);
     const data = JSON.parse(fs.readFileSync(filePath, "utf8"));
+
 
     console.log(`\n📄 Processing: ${file} (${data.length} questions)`);
 
@@ -78,83 +97,42 @@ async function uploadFill() {
       type: "fill",
       question: q.question?.trim(),
       answer: q.answer?.trim(),
-      correctAnswer: q.answer?.trim(),
-      wrongAnswers: [],
-      options: [],
       difficulty: q.difficulty || "Easy",
       category: q.category || "General",
     }));
 
-    if (validQuestions.length > 0) {
-      const result = await FillQuestion.insertMany(validQuestions);
-      console.log(`   ✔ Uploaded ${result.length} Fill questions`);
-      totalUploaded += result.length;
+    for (const q of validQuestions) {
+      await Model.updateOne(
+        { question: q.question },
+        { $set: q },
+        { upsert: true }
+      );
     }
+    console.log(`   ✔ Upserted ${validQuestions.length} Fill questions`);
+    totalUploaded += validQuestions.length;
   }
 
   return totalUploaded;
 }
 
-// Upload all to combined collection
-async function uploadAll() {
-  const files = fs.readdirSync(generatedDir).filter((f) => f.endsWith(".json"));
-
-  const allQuestions = [];
-
-  for (const file of files) {
-    const filePath = path.join(generatedDir, file);
-    const data = JSON.parse(fs.readFileSync(filePath, "utf8"));
-
-    if (Array.isArray(data)) {
-      allQuestions.push(
-        ...data.filter(validateQuestion).map((q) => ({
-          type: q.type || "mcq",
-          question: q.question?.trim(),
-          answer: q.answer?.trim() || q.correctAnswer?.trim(),
-          correctAnswer: q.correctAnswer?.trim() || q.answer?.trim(),
-          wrongAnswers: q.wrongAnswers || [],
-          options: q.options || [],
-          difficulty: q.difficulty || "Easy",
-          category: q.category || "General",
-        }))
-      );
-    }
-  }
-
-  if (allQuestions.length > 0) {
-    console.log(`\n📄 Uploading ${allQuestions.length} questions to combined collection`);
-    const result = await Question.insertMany(allQuestions);
-    console.log(`   ✔ Uploaded ${result.length} questions`);
-    return result.length;
-  }
-
-  return 0;
-}
-
 // Clear collections
 async function clearCollections() {
-  const mcqDeleted = await MCQQuestion.deleteMany({});
-  console.log(`🗑 Cleared ${mcqDeleted.deletedCount} MCQ questions`);
 
-  const fillDeleted = await FillQuestion.deleteMany({});
-  console.log(`🗑 Cleared ${fillDeleted.deletedCount} Fill questions`);
+  for (const [career, Model] of Object.entries(MODEL_MAP)) {
+    const deleted = await Model.deleteMany({});
+    console.log(`🗑 Cleared ${deleted.deletedCount} questions from ${career}`);
+  }
 
-  const allDeleted = await Question.deleteMany({});
-  console.log(`🗑 Cleared ${allDeleted.deletedCount} from combined collection`);
 }
 
 // Show statistics
 async function showStats() {
   console.log("\n📊 Database Statistics:\n");
 
-  const mcqStats = await MCQQuestion.getStats();
-  console.log("MCQ Questions:", JSON.stringify(mcqStats, null, 2));
-
-  const fillStats = await FillQuestion.getStats();
-  console.log("\nFill Questions:", JSON.stringify(fillStats, null, 2));
-
-  const allStats = await Question.getStats();
-  console.log("\nAll Questions:", JSON.stringify(allStats, null, 2));
+  for (const [career, Model] of Object.entries(MODEL_MAP)) {
+    const stats = await Model.getStats();
+    console.log(`${career} :`, JSON.stringify(stats, null, 2));
+  }
 }
 
 // Main function
@@ -182,8 +160,7 @@ async function main() {
         console.log("\n📤 Uploading all questions...");
         const mcq = await uploadMCQ();
         const fill = await uploadFill();
-        const all = await uploadAll();
-        console.log(`\n✔ Summary: MCQ=${mcq}, Fill=${fill}, Combined=${all}`);
+        console.log(`\n✔ Summary: MCQ=${mcq}, Fill=${fill}`);
         break;
 
       case "clear":

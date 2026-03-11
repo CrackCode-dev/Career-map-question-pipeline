@@ -41,7 +41,7 @@ function processFile(file) {
         question,
         answer,
         difficulty: difficulty || "Easy",    
-        category:   category   || "general" 
+        category:  (category   || "General" ).trim()
       });
 
     })

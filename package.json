@@ -5,19 +5,16 @@
   "scripts": {
     "normalize": "node src/normalize.js",
     "select": "node src/selectQuestions.js",
-    "generate:mcq": "node src/generateMCQ.js",
-    "generate:fill": "node src/generateFill.js",
+    "generateMCQ": "node src/generateMCQ.js",
+    "generateFill": "node src/generateFill.js",
     "upload": "node src/upload.js",
-    "upload:mcq": "node src/upload.js mcq",
-    "upload:fill": "node src/upload.js fill",
-    "upload:clear": "node src/upload.js clear",
-    "upload:stats": "node src/upload.js stats",
-    "all": "npm run normalize && npm run select && npm run generate:mcq && npm run generate:fill && npm run upload"
+    "pipeline": "npm run normalize && npm run select && npm run generateMCQ && npm run generateFill && npm run upload"
   },
   "dependencies": {
     "csv-parser": "^3.0.0",
     "dotenv": "^16.3.1",
     "groq-sdk": "^0.5.0",
+    "mongodb": "^7.1.0",
     "mongoose": "^8.0.0"
   }
 }

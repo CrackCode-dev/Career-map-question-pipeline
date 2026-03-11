@@ -32,9 +32,16 @@ Return JSON only, no markdown, no backticks:
         temperature: 0.3,
       });
 
-      const raw     = res.choices[0].message.content.trim();
+      const raw = res.choices[0].message.content.trim();
       const cleaned = raw.replace(/```json/g, "").replace(/```/g, "").trim();
-      const parsed  = JSON.parse(cleaned);
+
+      let parsed;
+
+      try {
+        parsed = JSON.parse(cleaned);
+      } catch (e) {
+        throw new Error("Invalid JSON returned from AI");
+      }
 
       if (!parsed.answer || parsed.answer.trim() === "") {
         throw new Error("Empty answer returned");
@@ -83,15 +90,22 @@ Return JSON only, no markdown, no backticks:
         temperature: 0.3,
       });
 
-      const raw     = res.choices[0].message.content.trim();
+      const raw = res.choices[0].message.content.trim();
       const cleaned = raw.replace(/```json/g, "").replace(/```/g, "").trim();
-      const parsed  = JSON.parse(cleaned);
+      let parsed;
 
-      if (!parsed.answer || parsed.answer.trim() === "") {
+      try {
+        parsed = JSON.parse(cleaned);
+      } catch (e) {
+        throw new Error("Invalid JSON returned from AI");
+      }
+
+      const answer =parsed.answer || parsed.Answer;
+      if (!answer || answer.trim() === "") {
         throw new Error("Empty answer returned");
       }
 
-      return parsed.answer.trim();
+      return answer.trim();
 
     } catch (err) {
       const is429 =

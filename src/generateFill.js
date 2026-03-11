@@ -1,29 +1,46 @@
+// // Import required modules and libraries for file handling, path resolution
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+
+//Import environment variable support
 import dotenv from "dotenv";
+
+//Import Groq AI SDK
 import Groq from "groq-sdk";
+
+//Import utility function to generate missing answer 
 import { generateMissingAnswer } from "./utils.js";
 
+// Load environment variables from .env file
 dotenv.config();
 
+//Fix __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+//Create Groq client
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
+// Folder containing normalized question files
 const inputDir = path.join(__dirname, "../output/normalized");
+
+// Folder where generated fill questions will be saved
 const outputDir = path.join(__dirname, "../output/generated");
 
+//Create output folder if it doesn't exist
 if (!fs.existsSync(outputDir)) {
   fs.mkdirSync(outputDir, { recursive: true });
 }
 
+//Utility delay function (helps prevent API rate limits)
 const wait = (ms) => new Promise((res) => setTimeout(res, ms));
 
+//Convert a question + answer into a fill-in-the-blank format using AI
 async function generateFillQuestion(question, answer, retries = 3) {
+  //Prompt sent to Ai to rewrite the question
   const prompt = `
 You are a quiz question designer. Convert this Q&A into a fill-in-the-blank question.
 
@@ -61,7 +78,7 @@ Return JSON only, no markdown, no backticks:
   "answer": "1-3 word key term only"
 }
 `;
-
+  // Retry loop to handle API errors or rate limits
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const res = await groq.chat.completions.create({
@@ -70,41 +87,53 @@ Return JSON only, no markdown, no backticks:
         temperature: 0.5,
       });
 
+      // Extract AI response
       const raw = res.choices[0].message.content.trim();
+
+      // Remove markdown formatting if present
       const cleaned = raw.replace(/```json/g, "").replace(/```/g, "").trim();
       let parsed;
 
       try {
+        // Convert JSON string to object
         parsed = JSON.parse(cleaned);
       } catch {
         throw new Error("Invalid JSON returned from AI");
       }
 
+      // Ensure exactly one blank exists
       const blankCount = (parsed.fillQuestion.match(/___/g) || []).length;
       if (blankCount !== 1) {
         throw new Error(`Expected 1 blank, got ${blankCount}`);
       }
 
+      // Return formatted fill question
       return { fillQuestion: parsed.fillQuestion, answer: parsed.answer };
 
     } catch (err) {
+      // Detect API rate limit errors
       const is429 =
         err.message?.includes("429") ||
         err.message?.includes("rate_limit") ||
         err.status === 429;
 
       if (is429 && attempt < retries) {
+        // Wait before retrying
         const delay = 30000 * attempt;
         console.log(`⏳ Rate limited. Waiting ${delay / 1000}s before retry ${attempt}/${retries}...`);
         await wait(delay);
       } else {
+        // Fallback if AI fails
         return { fillQuestion: `${question.replace(/\?/, "").trim()} ___?`, answer: answer }; // Fallback: just add a blank at the end
       }
     }
   }
 }
 
+//Process one file and generate fil-in blank questions
 async function processFile(file) {
+
+  // Read questions from JSON file
   const data = JSON.parse(
     fs.readFileSync(path.join(inputDir, file), "utf8")
   );
@@ -114,23 +143,28 @@ async function processFile(file) {
   for (let i = 0; i < data.length; i++) {
     const q = data[i];
 
+    // Skip invalid questions
     if (!q || !q.question) continue;
 
     console.log(`Generating ${i + 1}/${data.length}: ${q.question}`);
 
     let answer = q.answer?.trim();
 
+    // Get answer if available
     if (!answer) {
       answer = await generateMissingAnswer(q.question);
       await wait(1000);
     }
 
+    // Skip if still no answer
     if (!answer) {
       continue;
     }
 
+    // Generate fill-in-the-blank version
     const result = await generateFillQuestion(q.question, answer);
 
+    // Save formatted question
     output.push({
       type: "fill",
       question: result.fillQuestion,
@@ -139,10 +173,11 @@ async function processFile(file) {
       category: q.category,
     });
 
-    await wait(1000);
+    await wait(1000);// Small delay to prevent API rate limits
   }
 
   // Output filename - replace fill_ prefix if it exists, or add it
+  // Ensure output filename has fill_ prefix
   const outputFileName = file.startsWith("fill_") ? file : `fill_${file}`;
 
   console.log(`✔ Generated ${outputFileName} with ${output.length} questions`);
@@ -150,22 +185,29 @@ async function processFile(file) {
   return output;
 }
 
+//Main pipeline function
 async function main() {
+  // Read all files from normalized directory
   const files = fs.readdirSync(inputDir);
 
   for (const file of files) {
+    // Only process fill question files
     if (file.startsWith("fill_") && file.endsWith(".json")) {
       const questions = await processFile(file);
 
       if (questions.length > 0) {
-        // Extract career name from file: "fill_DataScientist.json" → "DataScientist"
+
+        // Extract career name from filename
+        // Example: fill_DataScientist.json → DataScientis
         const career = file.replace("fill_", "").replace(".json", "");
         const outputPath = path.join(outputDir, `fill_${career}.json`);
+
+        // Save generated questions
         fs.writeFileSync(outputPath, JSON.stringify(questions, null, 2));
         console.log(`✔ Saved fill_${career}.json (${questions.length} questions)`);
       }
     }
   }
 }
-
+// Start the script
 main();

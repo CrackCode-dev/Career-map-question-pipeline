@@ -1,3 +1,4 @@
+// Career-based topic structure used to group quiz questions into chapters and categories
 export const CAREER_CATEGORIES = {
     SoftwareEngineer: [
         {

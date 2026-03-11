@@ -1,11 +1,14 @@
+// Import required modules and libraries for file handling, path resolution, and CSV parsing
 import fs from "fs";
 import path from "path";
 import csv from "csv-parser";
 import { fileURLToPath } from "url";
 
+//fix __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Define input and output directories for normalized question files
 const inputDir = path.join(__dirname, "../input");       
 const outputDir = path.join(__dirname, "../output/normalized"); 
 

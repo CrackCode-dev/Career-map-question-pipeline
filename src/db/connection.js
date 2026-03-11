@@ -1,6 +1,10 @@
+// MongoDB object modeling library
 import mongoose from "mongoose";
+
+////Import environment variable support
 import dotenv from "dotenv";
 
+//Load environment variables from .env file
 dotenv.config();
 
 const MONGODB_URI = process.env.MONGO_URI ;
@@ -17,7 +21,6 @@ export async function connectDB() {
   try {
 
     const db = await mongoose.connect(MONGODB_URI);
-    
 
     isConnected = db.connections[0].readyState === 1;
     console.log("✔ Connected to MongoDB");

@@ -1,21 +1,33 @@
+//// Import required modules and libraries for file handling, path resolution
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+
+//Import environment variable support
 import dotenv from "dotenv";
+
+//Import database connection functions
 import { connectDB, disconnectDB } from "./db/connection.js";
+
+//Import MongoDB models for different careers
 import { SoftwareEngineerQ, MLEngineerQ, DataScientistQ } from "./db/models/Question.js";
 
+//Map each career to its corresponding database model
+//This allows selecting the correct collection dynamically 
 const MODEL_MAP = {
   SoftwareEngineer: SoftwareEngineerQ,
   MLEngineer: MLEngineerQ,
   DataScientist: DataScientistQ,
 };
 
+//Load environment variables from .env file
 dotenv.config();
 
+//Fix for ES module path handling (since __dirname is not available in ES modules)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+//Path where genrated question JSON files are stored
 const generatedDir = path.join(__dirname, "../output/generated");
 
 // Validate question before saving - FIXED for MCQ
@@ -35,7 +47,11 @@ async function uploadMCQ() {
   let totalUploaded = 0;
 
   for (const file of files) {
+
+    // Extract career name from filename (mcq_SoftwareEngineer.json → SoftwareEngineer)
     const career = file.replace("mcq_", "").replace(".json", "");
+
+    //Get the corresponding databse model
     const Model = MODEL_MAP[career];
     if (!Model) {
       console.error(` No model found for career: ${career}`);
@@ -43,10 +59,13 @@ async function uploadMCQ() {
     }
 
     const filePath = path.join(generatedDir, file);
+
+    //Read question data from JSON file
     const data = JSON.parse(fs.readFileSync(filePath, "utf8"));
 
     console.log(`\n📄 Processing: ${file} (${data.length} questions)`);
 
+    //Validating and clean questions before inserting
     const validQuestions = data.filter(validateQuestion).map((q) => ({
       type: "mcq",
       question: q.question?.trim(),
@@ -59,6 +78,7 @@ async function uploadMCQ() {
 
     console.log(`   Valid questions: ${validQuestions.length}`);
 
+    // Insert or update questions (avoid duplicates using question text)
     for (const q of validQuestions) {
       await Model.updateOne(
         { question: q.question },
@@ -76,6 +96,8 @@ async function uploadMCQ() {
 
 // Upload Fill questions
 async function uploadFill() {
+
+  //Get files starting with fill_
   const files = fs.readdirSync(generatedDir).filter((f) =>
     f.endsWith(".json") && f.startsWith("fill_")
   );
@@ -83,16 +105,19 @@ async function uploadFill() {
   let totalUploaded = 0;
 
   for (const file of files) {
+    // Extract career name
     const career = file.replace("fill_", "").replace(".json", "");
     const Model = MODEL_MAP[career];
     if (!Model) { console.warn(`⚠️ No model found for ${career}`); continue; }
 
     const filePath = path.join(generatedDir, file);
+    // Read JSON question data
     const data = JSON.parse(fs.readFileSync(filePath, "utf8"));
 
 
     console.log(`\n📄 Processing: ${file} (${data.length} questions)`);
 
+    // Validate and prepare questions
     const validQuestions = data.filter(validateQuestion).map((q) => ({
       type: "fill",
       question: q.question?.trim(),
@@ -101,6 +126,7 @@ async function uploadFill() {
       category: q.category || "General",
     }));
 
+    // Insert or update questions
     for (const q of validQuestions) {
       await Model.updateOne(
         { question: q.question },
@@ -115,7 +141,7 @@ async function uploadFill() {
   return totalUploaded;
 }
 
-// Clear collections
+// Clear all questions from all collections
 async function clearCollections() {
 
   for (const [career, Model] of Object.entries(MODEL_MAP)) {
@@ -125,7 +151,7 @@ async function clearCollections() {
 
 }
 
-// Show statistics
+// Display statistics about each collection
 async function showStats() {
   console.log("\n📊 Database Statistics:\n");
 
@@ -136,11 +162,13 @@ async function showStats() {
 }
 
 // Main function
+// Controls which operation runs based on CLI command
 async function main() {
   const args = process.argv.slice(2);
   const command = args[0] || "all";
 
   try {
+    //Connect to MongoDB
     await connectDB();
 
     switch (command) {
@@ -185,10 +213,13 @@ Commands:
         `);
     }
   } catch (err) {
+    //Handle any errors
     console.error("❌ Error:", err.message);
   } finally {
+    //Always close the databse connection
     await disconnectDB();
   }
 }
 
+//Start the script
 main();

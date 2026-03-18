@@ -1,7 +1,8 @@
 # Career Map Question Pipeline
 
-A Node.js pipeline that reads CSV datasets, selects and classifies questions by career path, generates MCQ and fill-in-the-blank questions using Groq AI (LLaMA 3.3 70B), and uploads them to MongoDB.
+A Node.js-based data processing pipeline that ingests structured CSV datasets, performs filtering and classification of questions based on predefined career paths, and dynamically generates both multiple-choice questions (MCQs) and brownfield fill-in-the-blanks questions using the Grok API (via an API key). 
 
+The system ensures contextual relevance and difficulty alignment while transforming raw data into interactive assessment content. Generated questions are validated, structured according to a standardized schema, and efficiently stored in a MongoDB database for scalable retrieval and use within the application.
 
 ---
 
